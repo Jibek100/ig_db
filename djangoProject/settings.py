@@ -80,7 +80,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'ig_management_db',
         'USER': 'root',
-        'PASSWORD': 'dark2000',
+        'PASSWORD': 'Chaikovski11',
         'HOST': '127.0.0.1'
     }
 }
