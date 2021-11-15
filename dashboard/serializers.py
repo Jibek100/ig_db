@@ -4,7 +4,7 @@ from .models import Profile, Post, Comment, Reply
 class profileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ['profile_id', 'username', 'bio', 'type', 'user']
+        fields = ['profile_id', 'username', 'bio', 'type']
 
 class postSerializer(serializers.ModelSerializer):
     class Meta:

@@ -1,13 +1,12 @@
 from django.db import models
 from django.utils import timezone
-from django.contrib.auth.models import User
+from django.conf import settings
 
 class Profile(models.Model):
     profile_id = models.IntegerField(primary_key=True)
     username = models.CharField(max_length=100)
     bio = models.TextField()
     type = models.TextField()
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
 
 class Post(models.Model):
     post_id = models.IntegerField(primary_key=True)
