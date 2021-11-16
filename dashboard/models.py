@@ -4,9 +4,9 @@ from django.conf import settings
 
 class Profile(models.Model):
     profile_id = models.IntegerField(primary_key=True)
-    username = models.CharField(max_length=100)
-    bio = models.TextField()
-    type = models.TextField()
+    username = models.CharField(max_length=20)
+    bio = models.TextField(max_length=150)
+    type = models.CharField(max_length=1)
 
 class Post(models.Model):
     post_id = models.IntegerField(primary_key=True)
@@ -22,16 +22,16 @@ class Post(models.Model):
 
 class Comment(models.Model):
     comment_id = models.IntegerField(primary_key=True)
-    content = models.TextField()
+    text = models.TextField()
     date_posted = models.DateTimeField(default=timezone.now)
-    profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
+    username = models.CharField(max_length=20)
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
     like_count = models.IntegerField()
 
 class Reply(models.Model):
     reply_id = models.IntegerField(primary_key=True)
-    content = models.TextField()
+    text = models.TextField()
     date_posted = models.DateTimeField(default=timezone.now)
-    profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
+    username = models.CharField(max_length=20)
     comment = models.ForeignKey(Comment, on_delete=models.CASCADE)
     like_count = models.IntegerField()

@@ -1,13 +1,36 @@
+import joblib
+from django.core.files.storage import FileSystemStorage
 from django.http import HttpResponse
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import Profile, Post, Comment, Reply
 from .serializers import profileSerializer, postSerializer, commentSerializer, replySerializer
+_MODEL_TYPE_NAMES = ['obscene', 'insult', 'toxic', 'severe_toxic', 'identity_hate', 'threat']
 
 def home(request):
     html = "<html><body>This is the site's homepage. </body></html>"
     return HttpResponse(html)
+
+@api_view(['GET'])
+def classifyComment(request, pk):
+    commentText = Comment.objects.get(pk=pk).text
+    models = {modelName:joblib.load('dashboard/models/' + modelName + '.pkl') for modelName in _MODEL_TYPE_NAMES}
+    vectorizer = joblib.load('dashboard/models/' + 'vectorizer' + '.pkl')
+    output = {modelName:models[modelName].predict_proba(vectorizer.transform([commentText])) for modelName in models}
+    return Response(output)
+
+@api_view(['GET'])
+def classifyComments(request):
+    comments = Comment.objects.all()
+    list = []
+    for comment in comments:
+        commentText = comment.text
+        models = {modelName:joblib.load('dashboard/models/' + modelName + '.pkl') for modelName in _MODEL_TYPE_NAMES}
+        vectorizer = joblib.load('dashboard/models/' + 'vectorizer' + '.pkl')
+        output = {modelName:models[modelName].predict_proba(vectorizer.transform([commentText])) for modelName in models}
+        list.append(output)
+    return Response(list)
 
 @api_view(['GET', 'POST'])
 def profile(request):
@@ -17,13 +40,13 @@ def profile(request):
         return Response(serializer.data)
 
     elif request.method == 'POST':
-        serializer = profileSerializer(data=request.data, many=True)
+        serializer = profileSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['GET', 'DELETE'])
+@api_view(['GET', 'PUT', 'DELETE'])
 def profileData(request, pk):
     try:
         profile = Profile.objects.get(pk=pk)
@@ -34,9 +57,17 @@ def profileData(request, pk):
         serializer = profileSerializer(profile)
         return Response(serializer.data)
 
+    elif request.method == 'PUT':
+        serializer = profileSerializer(profile, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     elif request.method == 'DELETE':
         profile.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 @api_view(['GET', 'POST'])
 def post(request):
@@ -52,7 +83,8 @@ def post(request):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['GET', 'DELETE'])
+
+@api_view(['GET', 'PUT', 'DELETE'])
 def postData(request, pk):
     try:
         post = Post.objects.get(pk=pk)
@@ -60,12 +92,20 @@ def postData(request, pk):
         return Response(status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'GET':
-        serializer = postSerializer(profile)
+        serializer = postSerializer(post)
         return Response(serializer.data)
+
+    elif request.method == 'PUT':
+        serializer = postSerializer(post, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
         post.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 @api_view(['GET', 'POST'])
 def comment(request):
@@ -81,7 +121,7 @@ def comment(request):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['GET', 'DELETE'])
+@api_view(['GET', 'PUT', 'DELETE'])
 def commentData(request, pk):
     try:
         comment = Comment.objects.get(pk=pk)
@@ -91,6 +131,13 @@ def commentData(request, pk):
     if request.method == 'GET':
         serializer = commentSerializer(comment)
         return Response(serializer.data)
+
+    elif request.method == 'PUT':
+        serializer = commentSerializer(comment, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
         comment.delete()
@@ -110,7 +157,7 @@ def reply(request):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['GET', 'DELETE'])
+@api_view(['GET', 'PUT', 'DELETE'])
 def replyData(request, pk):
     try:
         reply = Reply.objects.get(pk=pk)
@@ -120,6 +167,13 @@ def replyData(request, pk):
     if request.method == 'GET':
         serializer = replySerializer(reply)
         return Response(serializer.data)
+
+    elif request.method == 'PUT':
+        serializer = replySerializer(reply, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     elif request.method == 'DELETE':
         reply.delete()
