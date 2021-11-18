@@ -32,6 +32,25 @@ def classifyComments(request):
         list.append(output)
     return Response(list)
 
+def classifyCommentsBy():
+    comments = Comment.objects.all()
+    list = []
+    for comment in comments:
+        commentText = comment.text
+        models = {modelName:joblib.load('dashboard/models/' + modelName + '.pkl') for modelName in _MODEL_TYPE_NAMES}
+        vectorizer = joblib.load('dashboard/models/' + 'vectorizer' + '.pkl')
+        output = {modelName:models[modelName].predict_proba(vectorizer.transform([commentText])) for modelName in models}
+        for value in output.values():
+            list.append(value[0][1])
+        comment.obscene = list[0]
+        comment.insult = list[1]
+        comment.toxic = list[2]
+        comment.severe_toxic = list[3]
+        comment.identity_hate = list[4]
+        comment.threat = list[5]
+        comment.save()
+        list.clear()
+
 @api_view(['GET', 'POST'])
 def profile(request):
     if request.method == 'GET':
@@ -118,6 +137,7 @@ def comment(request):
         serializer = commentSerializer(data=request.data, many=True)
         if serializer.is_valid():
             serializer.save()
+            classifyCommentsBy()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

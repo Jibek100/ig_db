@@ -3,7 +3,7 @@ from django.utils import timezone
 from django.conf import settings
 
 class Profile(models.Model):
-    profile_id = models.IntegerField(primary_key=True)
+    profile_id = models.AutoField(primary_key=True)
     username = models.CharField(max_length=20)
     bio = models.TextField(max_length=150)
     type = models.CharField(max_length=1)
@@ -15,9 +15,9 @@ class Post(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
     like_count = models.IntegerField()
     comment_count = models.IntegerField()
-    engament = models.IntegerField()
-    impression = models.IntegerField()
-    reach = models.IntegerField()
+    engament = models.IntegerField(null=True, blank=True)
+    impression = models.IntegerField(null=True, blank=True)
+    reach = models.IntegerField(null=True, blank=True)
     saved = models.IntegerField()
 
 class Comment(models.Model):
@@ -27,6 +27,12 @@ class Comment(models.Model):
     username = models.CharField(max_length=20)
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
     like_count = models.IntegerField()
+    obscene = models.DecimalField(max_digits=21, decimal_places=20, null=True, blank=True)
+    insult = models.DecimalField(max_digits=21, decimal_places=20, null=True, blank=True)
+    toxic = models.DecimalField(max_digits=21, decimal_places=20, null=True, blank=True)
+    severe_toxic = models.DecimalField(max_digits=21, decimal_places=20, null=True, blank=True)
+    identity_hate = models.DecimalField(max_digits=21, decimal_places=20, null=True, blank=True)
+    threat = models.DecimalField(max_digits=21, decimal_places=20, null=True, blank=True)
 
 class Reply(models.Model):
     reply_id = models.IntegerField(primary_key=True)
