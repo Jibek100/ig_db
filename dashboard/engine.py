@@ -57,49 +57,30 @@ class SearchEngine():
     def buildIndex(self):
         try:
             if self.em is None:
-                print("No imported encoded text database.")
-                dec = input("Would you like to encode? (it may take ~ 1 hour)\n (y/n): ")
-                if dec.lower()[0] == 'y':
-                    self.encoder.max_seq_length = 512
-                    self.em = self.encoder.encode(self.df[self.target].to_list(), show_progress_bar=True)
-                    self.em = np.array([emi for emi in self.em]).astype("float32")
-                    self.vecdim = self.em.shape[1]
-                else:
-                    path = input("Enter the path to encoded text base: ")
-                    self.importEncoded(path)
+                self.encoder.max_seq_length = 512
+                self.em = self.encoder.encode(self.df[self.target].to_list(), show_progress_bar=True)
+                self.em = np.array([emi for emi in self.em]).astype("float32")
+                self.vecdim = self.em.shape[1]
             #self.index = faiss.IndexFlatL2(self.vecdim)
             self.index = faiss.IndexFlatIP(self.vecdim)
             self.index = faiss.IndexIDMap(self.index)
             self.normalizeEncoded()
-            self.index.add_with_ids(self.em, self.df.id.values)
+            self.index.add_with_ids(self.em, self.df['comment_id'].values)
             print("FAISS index was built successfully")
             print("Number of articles:", self.index.ntotal)
         except:
             print("ERROR: CANNOT build index")
     
-    def searchquery(self, text_query, k=5, to_display = ["title", "id"], export_txt=False):
-        tic = time.time()
+    def searchQuery(self, text_query, k=5, to_display = ['text', 'comment_id', 'username']):
         vector_query = self.encoder.encode(list([text_query]))
         vector_query = np.array(vector_query).astype("float32")
         vector_query = normalize(vector_query)
-        Dists, Ids = self.index.search(vector_query, k = k)
-        reslist = [self.df[self.df.id == idx][to_display].values for idx in Ids[0]]
-        outstring = ""
-        outstring += "Time taken for search is {}\n".format(time.time() - tic)
-        for k,i in enumerate(reslist):
-            outstring += "rank\t: "+str(k+1)+"\n"
-            outstring += "metric\t: "+str( Dists[0][k])+"\n"
-            for j,target in enumerate(to_display):
-                if target=="content":
-                    outstring += "content\t: " + str(i[0][j][:100])+"...\n"
-                else:
-                    outstring += str(target)+"\t: " + str(i[0][j])+"\n"
-                
-            outstring += "\n"
-        print(outstring)
-        if export_txt:
-            with open(f"{text_query}.txt", "w") as f:
-                f.write(outstring)
-    def saveencoded(self, path = "embs"):
+        dists, ids = self.index.search(vector_query, k = k)
+        comments = [self.df[self.df['comment_id'] == idx][to_display].to_dict() for idx in ids[0]]
+        for idx, dist in enumerate(dists[0]):
+            comments[idx]['dist'] = dist
+        return comments
+
+    def saveEncoded(self, path = "embs"):
         np.save(path, self.em)
 

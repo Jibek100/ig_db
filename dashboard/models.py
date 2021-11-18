@@ -3,7 +3,7 @@ from django.utils import timezone
 from django.conf import settings
 
 class Profile(models.Model):
-    profile_id = models.IntegerField(primary_key=True)
+    profile_id = models.AutoField(primary_key=True)
     username = models.CharField(max_length=20)
     bio = models.TextField(max_length=150)
     type = models.CharField(max_length=1)

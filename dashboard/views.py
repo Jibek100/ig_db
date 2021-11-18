@@ -1,7 +1,9 @@
+import pandas as pd
 import joblib
 from django.core.files.storage import FileSystemStorage
 from django.http import HttpResponse
 from rest_framework import status
+from .engine import SearchEngine
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import Profile, Post, Comment, Reply
@@ -11,6 +13,23 @@ _MODEL_TYPE_NAMES = ['obscene', 'insult', 'toxic', 'severe_toxic', 'identity_hat
 def home(request):
     html = "<html><body>This is the site's homepage. </body></html>"
     return HttpResponse(html)
+
+def getCommentsDf(fields = ['comment_id', 'text', 'username', 'like_count', 'post']):
+    comments = Comment.objects.all()
+    serializer = commentSerializer(comments, many=True)
+    # data = [{}] * len(serializer.data)
+    # print(len(serializer.data))
+    # for idx, dataInstance in enumerate(serializer.data):
+    #     print(dataInstance)
+    return pd.DataFrame(serializer.data)
+
+@api_view(['GET'])
+def searchComment(request):
+    text, engine = request.data['text'], None
+    engine = SearchEngine(target='text')
+    engine.importDf(getCommentsDf())
+    engine.buildIndex()
+    return Response(engine.searchQuery(text))
 
 @api_view(['GET'])
 def classifyComment(request, pk):
@@ -78,6 +97,7 @@ def post(request):
 
     elif request.method == 'POST':
         serializer = postSerializer(data=request.data, many=True)
+        print(serializer)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
