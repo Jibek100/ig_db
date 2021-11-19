@@ -18,7 +18,7 @@ class Post(models.Model):
     engament = models.IntegerField(null=True, blank=True)
     impression = models.IntegerField(null=True, blank=True)
     reach = models.IntegerField(null=True, blank=True)
-    saved = models.IntegerField()
+    saved = models.IntegerField(null=True, blank=True)
 
 class Comment(models.Model):
     comment_id = models.IntegerField(primary_key=True)
