@@ -83,7 +83,7 @@ WSGI_APPLICATION = 'djangoProject.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'ig_management_db',
+        'NAME': 'Jibek100$ig_management_db',
         'USER': 'Jibek100',
         'PASSWORD': 'password_ig',
         'HOST': 'Jibek100.mysql.pythonanywhere-services.com'
