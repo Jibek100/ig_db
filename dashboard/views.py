@@ -6,9 +6,10 @@ from rest_framework import status
 from .engine import SearchEngine
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Profile, Post, Comment, Reply
-from .serializers import profileSerializer, postSerializer, commentSerializer, replySerializer
+from .models import Profile, Post, Comment
+from .serializers import profileSerializer, postSerializer, commentSerializer
 _MODEL_TYPE_NAMES = ['obscene', 'insult', 'toxic', 'severe_toxic', 'identity_hate', 'threat']
+
 
 def home(request):
     html = "<html><body>This is the site's homepage. </body></html>"
@@ -182,40 +183,3 @@ def commentData(request, pk):
     elif request.method == 'DELETE':
         comment.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-@api_view(['GET', 'POST'])
-def reply(request):
-    if request.method == 'GET':
-        replies = Reply.objects.all()
-        serializer = replySerializer(replies, many=True)
-        return Response(serializer.data)
-
-    elif request.method == 'POST':
-        serializer = replySerializer(data=request.data, many=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-@api_view(['GET', 'PUT', 'DELETE'])
-def replyData(request, pk):
-    try:
-        reply = Reply.objects.get(pk=pk)
-    except reply.DoesNotExist:
-        return Response(status=status.HTTP_404_NOT_FOUND)
-
-    if request.method == 'GET':
-        serializer = replySerializer(reply)
-        return Response(serializer.data)
-
-    elif request.method == 'PUT':
-        serializer = replySerializer(reply, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    elif request.method == 'DELETE':
-        reply.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-

@@ -12,6 +12,4 @@ urlpatterns = [
     path('posts/<int:pk>', views.postData, name="dashboard-postData"),
     path('comments/', views.comment, name="dashboard-comments"),
     path('comments/<int:pk>', views.commentData, name="dashboard-commentData"),
-    path('replies/', views.reply, name="dashboard-replies"),
-    path('replies/<int:pk>', views.replyData, name="dashboard-replyData")
 ]

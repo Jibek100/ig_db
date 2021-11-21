@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Profile, Post, Comment, Reply
+from .models import Profile, Post, Comment
 
 class profileSerializer(serializers.ModelSerializer):
     class Meta:
@@ -14,9 +14,4 @@ class postSerializer(serializers.ModelSerializer):
 class commentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
-        fields = ['comment_id', 'text', 'date_posted', 'username', 'post', 'like_count', 'obscene', 'insult', 'toxic', 'severe_toxic', 'identity_hate', 'threat']
-
-class replySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Reply
-        fields = ['reply_id', 'text', 'date_posted', 'username', 'comment', 'like_count']
+        fields = ['comment_id', 'text', 'date_posted', 'username', 'post', 'like_count', 'parent_comment_id', 'is_reply', 'obscene', 'insult', 'toxic', 'severe_toxic', 'identity_hate', 'threat']
