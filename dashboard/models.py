@@ -6,7 +6,7 @@ class Profile(models.Model):
     profile_id = models.AutoField(primary_key=True)
     username = models.CharField(max_length=20)
     bio = models.TextField(max_length=150)
-    type = models.CharField(max_length=1)
+    type = models.BooleanField()
 
 class Post(models.Model):
     post_id = models.IntegerField(primary_key=True)
@@ -38,6 +38,6 @@ class Reply(models.Model):
     reply_id = models.IntegerField(primary_key=True)
     text = models.TextField()
     date_posted = models.DateTimeField(default=timezone.now)
-    username = models.CharField(max_length=20)
-    comment = models.ForeignKey(Comment, on_delete=models.CASCADE)
-    like_count = models.IntegerField()
+    comment = models.ForeignKey(Comment, related_name='replies', on_delete=models.CASCADE)
+
+

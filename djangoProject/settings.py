@@ -30,7 +30,11 @@ SECRET_KEY = 'django-insecure-e8&h8^$3&c@x&q#7ghr2(j%(fx^!xyp&&0!sm+yx+p7r8r1uqc
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
+<<<<<<< HEAD
 ALLOWED_HOSTS = ['jibek100.pythonanywhere.com', '*']
+=======
+ALLOWED_HOSTS = ['jibek100.pythonanywhere.com', '127.0.0.1', '*']
+>>>>>>> d5e5c169a32ff31792fe11ad5e2dd4f58424b12b
 
 
 # Application definition
