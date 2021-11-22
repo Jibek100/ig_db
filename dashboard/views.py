@@ -6,8 +6,9 @@ from rest_framework import status
 from .engine import SearchEngine
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Profile, Post, Comment
-from .serializers import profileSerializer, postSerializer, commentSerializer
+from rest_framework import viewsets
+from .models import Profile, Post, Comment, Reply
+from .serializers import profileSerializer, postSerializer, commentSerializer, replySerializer
 _MODEL_TYPE_NAMES = ['obscene', 'insult', 'toxic', 'severe_toxic', 'identity_hate', 'threat']
 
 
