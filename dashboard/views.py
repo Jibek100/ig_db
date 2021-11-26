@@ -7,8 +7,9 @@ from .engine import SearchEngine
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import viewsets
-from .models import Profile, Post, Comment, Reply
-from .serializers import profileSerializer, postSerializer, commentSerializer, replySerializer
+from emoji import UNICODE_EMOJI
+from .models import Profile, Post, Comment, Reply # Timestamp
+from .serializers import profileSerializer, postSerializer, commentSerializer, replySerializer # timestampSerializer
 _MODEL_TYPE_NAMES = ['obscene', 'insult', 'toxic', 'severe_toxic', 'identity_hate', 'threat']
 
 
@@ -53,8 +54,8 @@ def classifyComments(request):
         list.append(output)
     return Response(list)
 
-def classifyCommentsBy():
-    comments = Comment.objects.all()
+def classifyCommentsBy(ts):
+    comments = Comment.objects.filter(date_posted__gte=ts)
     list = []
     for comment in comments:
         commentText = comment.text
@@ -83,31 +84,7 @@ def profile(request):
         serializer = profileSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-@api_view(['GET', 'PUT', 'DELETE'])
-def profileData(request, pk):
-    try:
-        profile = Profile.objects.get(pk=pk)
-    except profile.DoesNotExist:
-        return Response(status=status.HTTP_404_NOT_FOUND)
-
-    if request.method == 'GET':
-        serializer = profileSerializer(profile)
-        return Response(serializer.data)
-
-    elif request.method == 'PUT':
-        serializer = profileSerializer(profile, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    elif request.method == 'DELETE':
-        profile.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 @api_view(['GET', 'POST'])
 def post(request):
@@ -117,36 +94,11 @@ def post(request):
         return Response(serializer.data)
 
     elif request.method == 'POST':
-        serializer = postSerializer(data=request.data, many=True)
-        # print(serializer)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-@api_view(['GET', 'PUT', 'DELETE'])
-def postData(request, pk):
-    try:
-        post = Post.objects.get(pk=pk)
-    except post.DoesNotExist:
-        return Response(status=status.HTTP_404_NOT_FOUND)
-
-    if request.method == 'GET':
-        serializer = postSerializer(post)
-        return Response(serializer.data)
-
-    elif request.method == 'PUT':
-        serializer = postSerializer(post, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    elif request.method == 'DELETE':
-        post.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
+        for item in request.data:
+            serializer = postSerializer(data=item)
+            if serializer.is_valid():
+                serializer.save()
+        return Response(status=status.HTTP_200_OK)
 
 @api_view(['GET', 'POST'])
 def comment(request):
@@ -156,31 +108,22 @@ def comment(request):
         return Response(serializer.data)
 
     elif request.method == 'POST':
-        serializer = commentSerializer(data=request.data, many=True)
-        if serializer.is_valid():
-            serializer.save()
-            # classifyCommentsBy()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        post = Post.objects.get(id=request.data[0].get('post_id'))
+        timestamp = post.ts
+        for item in request.data:
+            serializer = commentSerializer(data=item)
+            if serializer.is_valid():
+                serializer.save()
+        classifyCommentsBy(timestamp)
+        return Response(status=status.HTTP_200_OK)
 
-@api_view(['GET', 'PUT', 'DELETE'])
-def commentData(request, pk):
-    try:
-        comment = Comment.objects.get(pk=pk)
-    except comment.DoesNotExist:
-        return Response(status=status.HTTP_404_NOT_FOUND)
-
-    if request.method == 'GET':
-        serializer = commentSerializer(comment)
-        return Response(serializer.data)
-
-    elif request.method == 'PUT':
-        serializer = commentSerializer(comment, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    elif request.method == 'DELETE':
-        comment.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+@api_view(['GET'])
+def emoji_list():
+    comments = Comment.objects.all()
+    for comment in comments:
+        data = regex.findall(r'\X', comment.text)
+        for word in data:
+            if any(char in emoji.UNICODE_EMOJI for char in word):
+                emoji_list.append(word)
+        data = []
+    return Response(emoji_list)
