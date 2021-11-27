@@ -8,8 +8,9 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import viewsets
 from emoji import UNICODE_EMOJI
-from .models import Profile, Post, Comment, Reply # Timestamp
-from .serializers import profileSerializer, postSerializer, commentSerializer, replySerializer # timestampSerializer
+from instagram_scraper.constants import *
+from .models import Profile, Post, Comment, Reply
+from .serializers import profileSerializer, postSerializer, commentSerializer, replySerializer
 _MODEL_TYPE_NAMES = ['obscene', 'insult', 'toxic', 'severe_toxic', 'identity_hate', 'threat']
 
 
@@ -81,7 +82,10 @@ def profile(request):
         return Response(serializer.data)
 
     elif request.method == 'POST':
-        serializer = profileSerializer(data=request.data)
+        if Profile.objects.filter(id=request.data.get('id')).exists():
+            serializer = profileSerializer(Profile.objects.get(id=request.data.get('id')), data=request.data, partial=True)
+        else:
+            serializer = profileSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -95,7 +99,10 @@ def post(request):
 
     elif request.method == 'POST':
         for item in request.data:
-            serializer = postSerializer(data=item)
+            if Post.objects.filter(id=item.get('id')).exists():
+                serializer = postSerializer(Post.objects.get(id=item.get('id')), data=item, partial=True)
+            else:
+                serializer = postSerializer(data=item)
             if serializer.is_valid():
                 serializer.save()
         return Response(status=status.HTTP_200_OK)
@@ -127,3 +134,7 @@ def emoji_list():
                 emoji_list.append(word)
         data = []
     return Response(emoji_list)
+
+def getProfile(username):
+    argv = 'instagram scraper ' + username
+    return execute_from_command_line(argv)

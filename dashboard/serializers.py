@@ -18,6 +18,18 @@ class postSerializer(serializers.ModelSerializer):
         post = Post.objects.create(**validated_data, ts=ts)
         return post
 
+    def update(self, instance, validated_data):
+        instance.text = validated_data.get('text')
+        instance.date_posted = validated_data.get('date_posted')
+        instance.like_count = validated_data.get('like_count')
+        instance.comment_count = validated_data.get('comment_count')
+        instance.engament = validated_data.get('engament')
+        instance.impression = validated_data.get('impression')
+        instance.reach = validated_data.get('reach')
+        instance.saved = validated_data.get('saved')
+        instance.save()
+        return instance
+
 class replySerializer(serializers.ModelSerializer):
     class Meta:
         model = Reply
@@ -34,6 +46,7 @@ class commentSerializer(WritableNestedModelSerializer):
     def create(self, validated_data):
         post = validated_data.get('post_id')
         ts = post.ts
+
         replies_data = validated_data.pop('replies')
         comment = Comment.objects.create(**validated_data)
         for reply_data in replies_data:
