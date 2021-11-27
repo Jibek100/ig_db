@@ -9,5 +9,4 @@ urlpatterns = [
     path('profiles/', views.profile, name="dashboard-profiles"),
     path('posts/', views.post, name="dashboard-posts"),
     path('comments/', views.comment, name="dashboard-comments"),
-    path('emojilist/', views.emoji_list, name="emoji-list"),
 ]
