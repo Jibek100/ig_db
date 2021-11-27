@@ -36,7 +36,6 @@ ALLOWED_HOSTS = ['jibek100.pythonanywhere.com', '*']
 ALLOWED_HOSTS = ['jibek100.pythonanywhere.com', '127.0.0.1', '*']
 >>>>>>> d5e5c169a32ff31792fe11ad5e2dd4f58424b12b
 
-
 # Application definition
 
 INSTALLED_APPS = [

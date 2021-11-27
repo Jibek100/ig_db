@@ -1,5 +1,8 @@
-import pandas as pd
+import json
 import joblib
+import pandas as pd
+import jsonpickle
+from json import JSONEncoder
 from django.core.files.storage import FileSystemStorage
 from django.http import HttpResponse
 from rest_framework import status
@@ -56,7 +59,7 @@ def classifyComments(request):
     return Response(list)
 
 def classifyCommentsBy(ts):
-    comments = Comment.objects.filter(date_posted__gte=ts)
+    comments = Comment.objects.filter(date_posted__gte=ts).exclude(date_posted__exact=ts)
     list = []
     for comment in comments:
         commentText = comment.text
@@ -73,6 +76,7 @@ def classifyCommentsBy(ts):
         comment.threat = list[5]
         comment.save()
         list.clear()
+    return comments
 
 @api_view(['GET', 'POST'])
 def profile(request):
@@ -121,20 +125,6 @@ def comment(request):
             serializer = commentSerializer(data=item)
             if serializer.is_valid():
                 serializer.save()
-        classifyCommentsBy(timestamp)
-        return Response(status=status.HTTP_200_OK)
+        comments = classifyCommentsBy(timestamp).values()
+        return Response(comments, status=status.HTTP_200_OK)
 
-@api_view(['GET'])
-def emoji_list():
-    comments = Comment.objects.all()
-    for comment in comments:
-        data = regex.findall(r'\X', comment.text)
-        for word in data:
-            if any(char in emoji.UNICODE_EMOJI for char in word):
-                emoji_list.append(word)
-        data = []
-    return Response(emoji_list)
-
-def getProfile(username):
-    argv = 'instagram scraper ' + username
-    return execute_from_command_line(argv)
