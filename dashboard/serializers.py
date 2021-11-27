@@ -5,31 +5,58 @@ from .models import Profile, Post, Comment, Reply
 class profileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ['profile_id', 'username', 'bio', 'type']
+        fields = ['id', 'username', 'bio', 'type']
 
 class postSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
-        fields = ['post_id', 'text', 'date_posted', 'profile', 'like_count',
-                  'comment_count', 'engament', 'impression', 'reach', 'saved']
+        fields = ['id', 'text', 'date_posted', 'profile_id', 'like_count',
+                  'comment_count', 'engament', 'impression', 'reach', 'saved', 'ts']
+
+    def create(self, validated_data):
+        ts = validated_data.get('date_posted')
+        post = Post.objects.create(**validated_data, ts=ts)
+        return post
+
+    def update(self, instance, validated_data):
+        instance.text = validated_data.get('text')
+        instance.date_posted = validated_data.get('date_posted')
+        instance.like_count = validated_data.get('like_count')
+        instance.comment_count = validated_data.get('comment_count')
+        instance.engament = validated_data.get('engament')
+        instance.impression = validated_data.get('impression')
+        instance.reach = validated_data.get('reach')
+        instance.saved = validated_data.get('saved')
+        instance.save()
+        return instance
 
 class replySerializer(serializers.ModelSerializer):
     class Meta:
         model = Reply
-        fields = ['reply_id', 'text', 'date_posted']
+        fields = ['id', 'text', 'date_posted']
 
 class commentSerializer(WritableNestedModelSerializer):
     replies = replySerializer(many=True)
     class Meta:
         model = Comment
-        fields = ['comment_id', 'text', 'date_posted', 'username',
-                  'post', 'like_count', 'replies', 'obscene', 'insult',
+        fields = ['id', 'text', 'date_posted', 'username',
+                  'post_id', 'like_count', 'replies', 'obscene', 'insult',
                   'toxic', 'severe_toxic', 'identity_hate', 'threat']
 
     def create(self, validated_data):
+        post = validated_data.get('post_id')
+        ts = post.ts
+
         replies_data = validated_data.pop('replies')
         comment = Comment.objects.create(**validated_data)
         for reply_data in replies_data:
             Reply.objects.create(comment=comment, **reply_data)
+
+        if validated_data.get('date_posted') < ts:
+            comment.delete()
+        else:
+            post.ts = validated_data.get('date_posted')
+            post.save()
         return comment
+
 
