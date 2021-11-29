@@ -1,3 +1,4 @@
+from collections import OrderedDict
 from rest_framework import serializers
 from drf_writable_nested.serializers import WritableNestedModelSerializer
 from .models import Profile, Post, Comment, Reply
@@ -31,6 +32,15 @@ class commentSerializer(WritableNestedModelSerializer):
                   'post_id', 'like_count', 'replies', 'obscene', 'insult',
                   'toxic', 'severe_toxic', 'identity_hate', 'threat']
 
+    def update(self, instance, validated_data):
+        post = validated_data.get('post_id')
+        ts = post.ts
+        replies_data = validated_data.pop('replies')
+        for reply_data in replies_data:
+            if reply_data.get('date_posted') > ts:
+                reply = Reply.objects.create(comment=instance, **reply_data)
+        return instance
+
     def create(self, validated_data):
         post = validated_data.get('post_id')
         ts = post.ts
@@ -39,7 +49,6 @@ class commentSerializer(WritableNestedModelSerializer):
         comment = Comment.objects.create(**validated_data)
         for reply_data in replies_data:
             Reply.objects.create(comment=comment, **reply_data)
-
         if validated_data.get('date_posted') <= ts:
             comment.delete()
         else:
