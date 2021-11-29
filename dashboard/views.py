@@ -1,8 +1,8 @@
 import json
 import joblib
+import operator
 import pandas as pd
-import jsonpickle
-from json import JSONEncoder
+import collections
 from django.core.files.storage import FileSystemStorage
 from django.http import HttpResponse
 from rest_framework import status
@@ -10,8 +10,6 @@ from .engine import SearchEngine
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import viewsets
-from emoji import UNICODE_EMOJI
-from instagram_scraper.constants import *
 from .models import Profile, Post, Comment, Reply
 from .serializers import profileSerializer, postSerializer, commentSerializer, replySerializer
 _MODEL_TYPE_NAMES = ['obscene', 'insult', 'toxic', 'severe_toxic', 'identity_hate', 'threat']
@@ -58,8 +56,8 @@ def classifyComments(request):
         list.append(output)
     return Response(list)
 
-def classifyCommentsBy(ts):
-    comments = Comment.objects.filter(date_posted__gte=ts).exclude(date_posted__exact=ts)
+def classifyCommentsBy(ts, post_id):
+    comments = Comment.objects.filter(date_posted__gte=ts, post_id=post_id).exclude(date_posted__exact=ts)
     list = []
     for comment in comments:
         commentText = comment.text
@@ -119,12 +117,25 @@ def comment(request):
         return Response(serializer.data)
 
     elif request.method == 'POST':
-        post = Post.objects.get(id=request.data[0].get('post_id'))
-        timestamp = post.ts
+        classifiedComments = []
+        comments = collections.defaultdict(list)
         for item in request.data:
-            serializer = commentSerializer(data=item)
-            if serializer.is_valid():
-                serializer.save()
-        comments = classifyCommentsBy(timestamp).values()
-        return Response(comments, status=status.HTTP_200_OK)
+            comments[item['post_id']].append(item)
+        commentsSplitted = list(comments.values())
+        for listOfComments in commentsSplitted:
+            listOfComments.sort(key=operator.itemgetter('date_posted'))
+            id = listOfComments[0].get('post_id')
+            post = Post.objects.filter(id=id).first()
+            timestamp = post.ts
+            for item in listOfComments:
+                if Comment.objects.filter(id=item.get('id')).exists():
+                    serializer = commentSerializer(Comment.objects.get(id=item.get('id')), data=item, partial=True)
+                else:
+                    serializer = commentSerializer(data=item)
+                if serializer.is_valid():
+                    serializer.save()
+            classifiedComments += classifyCommentsBy(timestamp, id).values()
+        comments.clear()
+        commentsSplitted.clear()
+        return Response(classifiedComments, status=status.HTTP_200_OK)
 

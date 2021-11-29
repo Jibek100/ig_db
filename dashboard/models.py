@@ -36,7 +36,7 @@ class Comment(models.Model):
     threat = models.DecimalField(max_digits=21, decimal_places=20, null=True, blank=True)
 
 class Reply(models.Model):
-    id = models.IntegerField(primary_key=True)
+    id = models.CharField(primary_key=True, max_length=100)
     text = models.TextField()
     date_posted = models.DateTimeField(default=timezone.now)
     comment = models.ForeignKey(Comment, related_name='replies', on_delete=models.CASCADE)
