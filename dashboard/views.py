@@ -13,48 +13,31 @@ from rest_framework import viewsets
 from .models import Profile, Post, Comment, Reply
 from .serializers import profileSerializer, postSerializer, commentSerializer, replySerializer
 _MODEL_TYPE_NAMES = ['obscene', 'insult', 'toxic', 'severe_toxic', 'identity_hate', 'threat']
-
+engine = SearchEngine()
 
 def home(request):
     html = "<html><body>This is the site's homepage. </body></html>"
     return HttpResponse(html)
 
-def getCommentsDf(fields = ['comment_id', 'text', 'username', 'like_count', 'post']):
+def getCommentsDf(fields = ['id', 'text', 'username', 'like_count', 'post_id']):
     comments = Comment.objects.all()
     serializer = commentSerializer(comments, many=True)
+    df = pd.DataFrame(serializer.data, index=None)
+    df['comment_id'] = [id for id in range(len(comments))]
     # data = [{}] * len(serializer.data)
     # print(len(serializer.data))
     # for idx, dataInstance in enumerate(serializer.data):
     #     print(dataInstance)
-    return pd.DataFrame(serializer.data)
+    return df
 
-@api_view(['GET'])
+@api_view(['POST'])
 def searchComment(request):
-    text, engine = request.data['text'], None
-    engine = SearchEngine(target='text')
-    engine.importDf(getCommentsDf())
+    global engine
+    text = request.data['text']
+    engine.target = 'text'
+    engine.importDf(getCommentsDf(request.data['fields']))
     engine.buildIndex()
-    return Response(engine.searchQuery(text))
-
-@api_view(['GET'])
-def classifyComment(request, pk):
-    commentText = Comment.objects.get(pk=pk).text
-    models = {modelName:joblib.load('dashboard/models/' + modelName + '.pkl') for modelName in _MODEL_TYPE_NAMES}
-    vectorizer = joblib.load('dashboard/models/' + 'vectorizer' + '.pkl')
-    output = {modelName:models[modelName].predict_proba(vectorizer.transform([commentText])) for modelName in models}
-    return Response(output)
-
-@api_view(['GET'])
-def classifyComments(request):
-    comments = Comment.objects.all()
-    list = []
-    for comment in comments:
-        commentText = comment.text
-        models = {modelName:joblib.load('dashboard/models/' + modelName + '.pkl') for modelName in _MODEL_TYPE_NAMES}
-        vectorizer = joblib.load('dashboard/models/' + 'vectorizer' + '.pkl')
-        output = {modelName:models[modelName].predict_proba(vectorizer.transform([commentText])) for modelName in models}
-        list.append(output)
-    return Response(list)
+    return Response(engine.searchQuery(text, to_display=request.data['fields']))
 
 def classifyCommentsBy(ts, post_id):
     comments = Comment.objects.filter(date_posted__gte=ts, post_id=post_id).exclude(date_posted__exact=ts)
@@ -135,7 +118,5 @@ def comment(request):
                 if serializer.is_valid():
                     serializer.save()
             classifiedComments += classifyCommentsBy(timestamp, id).values()
-        comments.clear()
-        commentsSplitted.clear()
         return Response(classifiedComments, status=status.HTTP_200_OK)
 

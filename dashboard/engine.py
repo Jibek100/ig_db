@@ -55,28 +55,26 @@ class SearchEngine():
             print("ERROR: CANNOT import encoded text database")
 
     def buildIndex(self):
-        try:
-            if self.em is None:
-                self.encoder.max_seq_length = 512
-                self.em = self.encoder.encode(self.df[self.target].to_list(), show_progress_bar=True)
-                self.em = np.array([emi for emi in self.em]).astype("float32")
-                self.vecdim = self.em.shape[1]
-            #self.index = faiss.IndexFlatL2(self.vecdim)
-            self.index = faiss.IndexFlatIP(self.vecdim)
-            self.index = faiss.IndexIDMap(self.index)
-            self.normalizeEncoded()
-            self.index.add_with_ids(self.em, self.df['comment_id'].values)
-            print("FAISS index was built successfully")
-            print("Number of articles:", self.index.ntotal)
-        except:
-            print("ERROR: CANNOT build index")
+        if self.em is None:
+            self.encoder.max_seq_length = 512
+            self.em = self.encoder.encode(self.df[self.target].to_list(), show_progress_bar=True)
+            self.em = np.array([emi for emi in self.em]).astype("float32")
+            self.vecdim = self.em.shape[1]
+        #self.index = faiss.IndexFlatL2(self.vecdim)
+        self.index = faiss.IndexFlatIP(self.vecdim)
+        self.index = faiss.IndexIDMap(self.index)
+        self.normalizeEncoded()
+        self.index.add_with_ids(self.em, self.df['comment_id'].values)
+        print("FAISS index was built successfully")
+        print("Number of articles:", self.index.ntotal)
+
     
-    def searchQuery(self, text_query, k=5, to_display = ['text', 'comment_id', 'username']):
+    def searchQuery(self, text_query, k=5, to_display = ['text', 'comment_id', 'username', 'id']):
         vector_query = self.encoder.encode(list([text_query]))
         vector_query = np.array(vector_query).astype("float32")
         vector_query = normalize(vector_query)
         dists, ids = self.index.search(vector_query, k = k)
-        comments = [self.df[self.df['comment_id'] == idx][to_display].to_dict() for idx in ids[0]]
+        comments = [self.df[self.df['comment_id'] == idx][to_display].to_dict('r')[0] for idx in ids[0]]
         for idx, dist in enumerate(dists[0]):
             comments[idx]['dist'] = dist
         return comments
