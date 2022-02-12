@@ -1,18 +1,18 @@
 from collections import OrderedDict
 from rest_framework import serializers
 from drf_writable_nested.serializers import WritableNestedModelSerializer
-from .models import Profile, Post, Comment, Reply
+from .models import *
+from .views import *
 
 class profileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ['id', 'username', 'bio', 'type']
+        fields = '__all__'
 
 class postSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
-        fields = ['id', 'text', 'date_posted', 'profile_id', 'like_count',
-                  'comment_count', 'engament', 'impression', 'reach', 'saved', 'ts']
+        fields = '__all__'
 
     def create(self, validated_data):
         ts = validated_data.get('date_posted')
@@ -22,7 +22,7 @@ class postSerializer(serializers.ModelSerializer):
 class replySerializer(serializers.ModelSerializer):
     class Meta:
         model = Reply
-        fields = ['id', 'text', 'date_posted']
+        fields = '__all__'
 
 class commentSerializer(WritableNestedModelSerializer):
     replies = replySerializer(many=True)
@@ -37,7 +37,7 @@ class commentSerializer(WritableNestedModelSerializer):
         ts = post.ts
         replies_data = validated_data.pop('replies')
         for reply_data in replies_data:
-            if reply_data.get('date_posted') > ts:
+            if not Reply.objects.filter(id=reply_data['id']).exists():
                 reply = Reply.objects.create(comment=instance, **reply_data)
         return instance
 
@@ -47,13 +47,13 @@ class commentSerializer(WritableNestedModelSerializer):
 
         replies_data = validated_data.pop('replies')
         comment = Comment.objects.create(**validated_data)
-        for reply_data in replies_data:
-            Reply.objects.create(comment=comment, **reply_data)
         if validated_data.get('date_posted') <= ts:
             comment.delete()
         else:
             post.ts = validated_data.get('date_posted')
             post.save()
+        for reply_data in replies_data:
+            Reply.objects.create(comment=comment, **reply_data)
         return comment
 
 

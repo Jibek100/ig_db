@@ -3,6 +3,7 @@ import joblib
 import operator
 import pandas as pd
 import collections
+import itertools
 from django.core.files.storage import FileSystemStorage
 from django.http import HttpResponse
 from rest_framework import status
@@ -10,8 +11,8 @@ from .engine import SearchEngine
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import viewsets
-from .models import Profile, Post, Comment, Reply
-from .serializers import profileSerializer, postSerializer, commentSerializer, replySerializer
+from .models import *
+from .serializers import *
 _MODEL_TYPE_NAMES = ['obscene', 'insult', 'toxic', 'severe_toxic', 'identity_hate', 'threat']
 engine = SearchEngine()
 
@@ -39,25 +40,34 @@ def searchComment(request):
     engine.buildIndex()
     return Response(engine.searchQuery(text, to_display=request.data['fields']))
 
-def classifyCommentsBy(ts, post_id):
-    comments = Comment.objects.filter(date_posted__gte=ts, post_id=post_id).exclude(date_posted__exact=ts)
+def classify(id):
+    if Comment.objects.filter(id=id).exists():
+        model = Comment.objects.filter(id=id).first()
+    else:
+        model = Reply.objects.filter(id=id).first()
     list = []
-    for comment in comments:
-        commentText = comment.text
-        models = {modelName:joblib.load('dashboard/models/' + modelName + '.pkl') for modelName in _MODEL_TYPE_NAMES}
-        vectorizer = joblib.load('dashboard/models/' + 'vectorizer' + '.pkl')
-        output = {modelName:models[modelName].predict_proba(vectorizer.transform([commentText])) for modelName in models}
-        for value in output.values():
-            list.append(value[0][1])
-        comment.obscene = list[0]
-        comment.insult = list[1]
-        comment.toxic = list[2]
-        comment.severe_toxic = list[3]
-        comment.identity_hate = list[4]
-        comment.threat = list[5]
-        comment.save()
-        list.clear()
-    return comments
+    text = model.text
+    models = {modelName: joblib.load('dashboard/models/' + modelName + '.pkl') for modelName in _MODEL_TYPE_NAMES}
+    vectorizer = joblib.load('dashboard/models/' + 'vectorizer' + '.pkl')
+    output = {modelName: models[modelName].predict_proba(vectorizer.transform([text])) for modelName in models}
+    for value in output.values():
+        list.append(value[0][1])
+    model.obscene = list[0]
+    model.insult = list[1]
+    model.toxic = list[2]
+    model.severe_toxic = list[3]
+    model.identity_hate = list[4]
+    model.threat = list[5]
+    model.save()
+
+def classifyComments(ts, post_id):
+    comments = Comment.objects.filter(date_posted__gte=ts, post_id=post_id).exclude(date_posted__exact=ts)
+    replies = Reply.objects.filter(date_posted__gte=ts, post_id=post_id).exclude(date_posted__exact=ts)
+    for c in comments:
+        classify(c.id)
+    for r in replies:
+        classify(r.id)
+    return list(comments.values()) + list(replies.values())
 
 @api_view(['GET', 'POST'])
 def profile(request):
@@ -100,23 +110,23 @@ def comment(request):
         return Response(serializer.data)
 
     elif request.method == 'POST':
-        classifiedComments = []
-        comments = collections.defaultdict(list)
+        classifiedcomments = []
+        allcomments = collections.defaultdict(list)
         for item in request.data:
-            comments[item['post_id']].append(item)
-        commentsSplitted = list(comments.values())
-        for listOfComments in commentsSplitted:
-            listOfComments.sort(key=operator.itemgetter('date_posted'))
-            id = listOfComments[0].get('post_id')
+            allcomments[item['post_id']].append(item)
+        sortedcomments = list(allcomments.values())
+        for comments in sortedcomments:
+            comments.sort(key=operator.itemgetter('date_posted'))
+            id = comments[0].get('post_id')
             post = Post.objects.filter(id=id).first()
             timestamp = post.ts
-            for item in listOfComments:
-                if Comment.objects.filter(id=item.get('id')).exists():
-                    serializer = commentSerializer(Comment.objects.get(id=item.get('id')), data=item, partial=True)
+            for comment in comments:
+                if Comment.objects.filter(id=comment.get('id')).exists():
+                    serializer = commentSerializer(Comment.objects.get(id=comment.get('id')), data=comment, partial=True)
                 else:
-                    serializer = commentSerializer(data=item)
+                    serializer = commentSerializer(data=comment)
                 if serializer.is_valid():
                     serializer.save()
-            classifiedComments += classifyCommentsBy(timestamp, id).values()
-        return Response(classifiedComments, status=status.HTTP_200_OK)
+            classifiedcomments += classifyComments(timestamp, id)
+        return Response(classifiedcomments, status=status.HTTP_200_OK)
 

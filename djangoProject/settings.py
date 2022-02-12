@@ -83,12 +83,19 @@ WSGI_APPLICATION = 'djangoProject.wsgi.application'
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
 DATABASES = {
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.mysql',
+    #     'NAME': 'Jibek100$ig_management_db',
+    #     'USER': 'Jibek100',
+    #     'PASSWORD': 'password_ig',
+    #     'HOST': 'Jibek100.mysql.pythonanywhere-services.com'
+    # }
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'Jibek100$ig_management_db',
-        'USER': 'Jibek100',
-        'PASSWORD': 'password_ig',
-        'HOST': 'Jibek100.mysql.pythonanywhere-services.com'
+        'NAME': 'ig_management_db',
+        'USER': 'root',
+        'PASSWORD': 'Chaikovski11',
+        'HOST': '127.0.0.1'
     }
 }
 
