@@ -20,6 +20,7 @@ class postSerializer(serializers.ModelSerializer):
         return post
 
 class replySerializer(serializers.ModelSerializer):
+    comment_id = serializers.PrimaryKeyRelatedField(queryset=Comment.objects.all(), required=False)
     class Meta:
         model = Reply
         fields = '__all__'
@@ -30,28 +31,29 @@ class commentSerializer(WritableNestedModelSerializer):
         model = Comment
         fields = '__all__'
 
-    def update(self, instance, validated_data):
-        post = validated_data.get('post_id')
-        ts = post.ts
-        replies_data = validated_data.pop('replies')
-        for reply_data in replies_data:
-            if not Reply.objects.filter(id=reply_data['id']).exists():
-                Reply.objects.create(comment=instance, **reply_data)
-        return instance
-
     def create(self, validated_data):
         post = validated_data.get('post_id')
         ts = post.ts
 
         replies_data = validated_data.pop('replies')
         comment = Comment.objects.create(**validated_data)
-        for reply_data in replies_data:
-            Reply.objects.create(comment_id=comment, **reply_data)
+        for reply in replies_data:
+            Reply.objects.create(comment_id=comment, **reply)
         if validated_data.get('date_posted') <= ts:
             comment.delete()
         else:
             post.ts = validated_data.get('date_posted')
             post.save()
         return comment
+
+    def update(self, instance, validated_data):
+        post = validated_data.get('post_id')
+        ts = post.ts
+        replies_data = validated_data.pop('replies')
+        for reply in replies_data:
+            reply_id = reply.get('id', None)
+            if not reply_id:
+                Reply.objects.create(comment_id=instance, **reply)
+        return instance
 
 
