@@ -28,9 +28,7 @@ class commentSerializer(WritableNestedModelSerializer):
     replies = replySerializer(many=True)
     class Meta:
         model = Comment
-        fields = ['id', 'text', 'date_posted', 'username',
-                  'post_id', 'like_count', 'replies', 'obscene', 'insult',
-                  'toxic', 'severe_toxic', 'identity_hate', 'threat']
+        fields = '__all__'
 
     def update(self, instance, validated_data):
         post = validated_data.get('post_id')
@@ -38,7 +36,7 @@ class commentSerializer(WritableNestedModelSerializer):
         replies_data = validated_data.pop('replies')
         for reply_data in replies_data:
             if not Reply.objects.filter(id=reply_data['id']).exists():
-                reply = Reply.objects.create(comment=instance, **reply_data)
+                Reply.objects.create(comment=instance, **reply_data)
         return instance
 
     def create(self, validated_data):
@@ -47,13 +45,13 @@ class commentSerializer(WritableNestedModelSerializer):
 
         replies_data = validated_data.pop('replies')
         comment = Comment.objects.create(**validated_data)
+        for reply_data in replies_data:
+            Reply.objects.create(comment_id=comment, **reply_data)
         if validated_data.get('date_posted') <= ts:
             comment.delete()
         else:
             post.ts = validated_data.get('date_posted')
             post.save()
-        for reply_data in replies_data:
-            Reply.objects.create(comment=comment, **reply_data)
         return comment
 
 
