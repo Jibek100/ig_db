@@ -7,4 +7,6 @@ urlpatterns = [
     path('profiles/', views.profile, name="dashboard-profiles"),
     path('posts/', views.post, name="dashboard-posts"),
     path('comments/', views.comment, name="dashboard-comments"),
+    path('usercomments/', views.usernameComments, name="user-interactions"),
+    path('profilepics/', views.getProfilePic, name="profile-pics")
 ]

@@ -30,7 +30,7 @@ SECRET_KEY = 'django-insecure-e8&h8^$3&c@x&q#7ghr2(j%(fx^!xyp&&0!sm+yx+p7r8r1uqc
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['jibek100.pythonanywhere.com', '127.0.0.1', '*']
+ALLOWED_HOSTS = ['127.0.0.1', '*']
 
 # Application definition
 
@@ -83,20 +83,20 @@ WSGI_APPLICATION = 'djangoProject.wsgi.application'
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
 DATABASES = {
-    # 'default': {
-    #     'ENGINE': 'django.db.backends.mysql',
-    #     'NAME': 'Jibek100$ig_management_db',
-    #     'USER': 'Jibek100',
-    #     'PASSWORD': 'password_ig',
-    #     'HOST': 'Jibek100.mysql.pythonanywhere-services.com'
-    # }
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'ig_management_db',
-        'USER': 'root',
-        'PASSWORD': 'Chaikovski11',
-        'HOST': '127.0.0.1'
+        'NAME': 'Jibek100$ig_management_db',
+        'USER': 'Jibek100',
+        'PASSWORD': 'password_ig',
+        'HOST': 'Jibek100.mysql.pythonanywhere-services.com'
     }
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.mysql',
+    #     'NAME': 'ig_management_db',
+    #     'USER': 'root',
+    #     'PASSWORD': 'Chaikovski11',
+    #     'HOST': '127.0.0.1'
+    # }
 }
 
 
@@ -138,7 +138,9 @@ USE_TZ = True
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATIC_URL = '/static/'
-
+STATICFILES_DIRS = (
+    os.path.join(BASE_DIR, 'static'),
+)
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 

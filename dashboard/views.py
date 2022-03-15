@@ -3,6 +3,7 @@ import joblib
 import operator
 import pandas as pd
 import collections
+import instaloader
 import itertools
 from django.core.files.storage import FileSystemStorage
 from django.http import HttpResponse
@@ -11,6 +12,7 @@ from .engine import SearchEngine
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import viewsets
+from django.db.models import Count
 from .models import *
 from .serializers import *
 _MODEL_TYPE_NAMES = ['obscene', 'insult', 'toxic', 'severe_toxic', 'identity_hate', 'threat']
@@ -69,6 +71,25 @@ def classifyComments(ts, post_id):
         classify(r.id)
     return list(comments.values()) + list(replies.values())
 
+@api_view(['GET'])
+def usernameComments(request):
+    comments = Comment.objects.all()
+    allcomments = collections.defaultdict(list)
+    for comment in comments:
+        allcomments[comment.username].append(comment.text)
+    return Response(allcomments, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+def getProfilePic(request):
+    name = request.data.get('username')
+    igloader = instaloader.Instaloader()
+    # if isinstance(name, str):
+    profile = igloader.check_profile_id(name.lower())
+    # else:
+    #     profile = name
+    igloader.download_profilepic(profile)
+    return Response(status=status.HTTP_200_OK)
+
 @api_view(['GET', 'POST'])
 def profile(request):
     if request.method == 'GET':
@@ -119,7 +140,7 @@ def comment(request):
             comments.sort(key=operator.itemgetter('date_posted'))
             id = comments[0].get('post_id')
             post = Post.objects.filter(id=id).first()
-            timestamp = post.ts
+            ts = post.ts
             for comment in comments:
                 if Comment.objects.filter(id=comment.get('id')).exists():
                     serializer = commentSerializer(Comment.objects.get(id=comment.get('id')), data=comment, partial=True)
@@ -127,6 +148,6 @@ def comment(request):
                     serializer = commentSerializer(data=comment)
                 if serializer.is_valid():
                     serializer.save()
-            classifiedcomments += classifyComments(timestamp, id)
+            classifiedcomments += classifyComments(ts, id)
         return Response(classifiedcomments, status=status.HTTP_200_OK)
 
