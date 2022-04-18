@@ -2,7 +2,7 @@ import torch
 import numpy as np
 
 from torch.utils.data import Dataset
-from model import DistilBertForSequenceClassification
+from .model import DistilBertForSequenceClassification
 from transformers import DistilBertConfig, DistilBertTokenizer
 
 TOKENIZER = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
@@ -56,14 +56,14 @@ def main():
     config = DistilBertConfig(
         vocab_size=32000, hidden_dim=768,
         dropout=0.1, num_labels=6,
-        n_layers=12, n_heads=12, 
+        n_layers=12, n_heads=12,
         intermediate_size=3072)
     state_dict = torch.load('models/distilbert_model_weights.pth', map_location=DEVICE)
     model = DistilBertForSequenceClassification(config)
     model.load_state_dict(state_dict=state_dict)
     model.to(DEVICE)
     comments = [
-        'Fuck u', 'I hate u', 'I wish u were dead!', 
+        'Fuck u', 'I hate u', 'I wish u were dead!',
         'U r a good man', 'I hope that you will die someday', 'Hate must be vanished',
         'Fuck yeah', 'Fucking aweasome', 'The government should have done somethinng more meaningful']
 
