@@ -26,9 +26,12 @@ class Username(models.Model):
     username = models.CharField(max_length=20)
     photo = models.TextField(null=True, blank=True)
     bio = models.CharField(null=True, blank=True, max_length=300)
-    avg_response_time = models.DurationField(null=True, blank=True)
+    site = models.CharField(null=True, blank=True, max_length=100)
+    avg_response_time = models.TimeField(null=True, blank=True)
     avg_negativity_rate = models.DecimalField(max_digits=10, decimal_places=10, null=True, blank=True)
     avg_likes_num = models.IntegerField(null=True, blank=True)
+    contains_link = models.BooleanField(null=True, blank=True)
+    nudity_indicator = models.DecimalField(max_digits=21, decimal_places=20, null=True, blank=True)
 
 class Comment(models.Model):
     id = models.CharField(primary_key=True, max_length=100)
@@ -44,6 +47,8 @@ class Comment(models.Model):
     severe_toxic = models.DecimalField(max_digits=21, decimal_places=20, null=True, blank=True)
     identity_hate = models.DecimalField(max_digits=21, decimal_places=20, null=True, blank=True)
     threat = models.DecimalField(max_digits=21, decimal_places=20, null=True, blank=True)
+    x = models.FloatField(null=True, blank=True)
+    y = models.FloatField(null=True, blank=True)
 
 class Reply(models.Model):
     id = models.CharField(primary_key=True, max_length=100)
@@ -60,3 +65,5 @@ class Reply(models.Model):
     severe_toxic = models.DecimalField(max_digits=21, decimal_places=20, null=True, blank=True)
     identity_hate = models.DecimalField(max_digits=21, decimal_places=20, null=True, blank=True)
     threat = models.DecimalField(max_digits=21, decimal_places=20, null=True, blank=True)
+    x = models.FloatField(null=True, blank=True)
+    y = models.FloatField(null=True, blank=True)

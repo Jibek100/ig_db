@@ -8,6 +8,8 @@ import pandas as pd
 import collections
 import instaloader
 import itertools
+import emoji
+import re
 from django.core.files.storage import FileSystemStorage
 from django.http import HttpResponse
 from rest_framework import status
@@ -17,9 +19,11 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import viewsets
 from django.db.models import Count
+from sklearn.manifold import TSNE
 from .models import *
 from .serializers import *
 from .test import *
+
 _MODEL_TYPE_NAMES = ['obscene', 'insult', 'toxic', 'severe_toxic', 'identity_hate', 'threat']
 engine = SearchEngine()
 igloader = instaloader.Instaloader()
@@ -33,11 +37,13 @@ model = DistilBertForSequenceClassification(config)
 model.load_state_dict(state_dict=state_dict)
 model.to(DEVICE)
 
+
 def home(request):
     html = "<html><body>This is the site's homepage. </body></html>"
     return HttpResponse(html)
 
-def getCommentsDf(fields = ['id', 'text', 'username', 'like_count', 'post_id']):
+
+def getCommentsDf(fields=['id', 'text', 'username', 'like_count', 'post_id']):
     comments = Comment.objects.all()
     serializer = commentSerializer(comments, many=True)
     df = pd.DataFrame(serializer.data, index=None)
@@ -48,6 +54,7 @@ def getCommentsDf(fields = ['id', 'text', 'username', 'like_count', 'post_id']):
     #     print(dataInstance)
     return df
 
+
 @api_view(['POST'])
 def searchComment(request):
     global engine
@@ -56,6 +63,7 @@ def searchComment(request):
     engine.importDf(getCommentsDf(request.data['fields']))
     engine.buildIndex()
     return Response(engine.searchQuery(text, to_display=request.data['fields']))
+
 
 def classifyComments(ts, post_id):
     comments = Comment.objects.filter(date_posted__gte=ts, post_id=post_id).exclude(date_posted__exact=ts)
@@ -84,29 +92,14 @@ def classifyComments(ts, post_id):
 
     return list(comments.values()) + list(replies.values())
 
+
 @api_view(['POST'])
 def searchUsername(request):
-    comments = Comment.objects.all()
-    allcomments = collections.defaultdict(list)
-    for comment in comments:
-        allcomments[comment.username].append(comment.id)
-    name = request.data.get('username');
-    userComments = Comment.objects.filter(pk__in=allcomments[name])
-    return Response(userComments.values(), status=status.HTTP_200_OK)
+    comments = list(Comment.objects.filter(username=request.data['username']).values()) + list(Reply.objects.filter(username=request.data['username']).values())
+    return Response(comments, status=status.HTTP_200_OK)
 
-@api_view(['POST'])
-def getProfilePic(request):
-    name = request.data.get('username')
-    igloader = instaloader.Instaloader()
-    profile = igloader.check_profile_id(name.lower())
-    igloader.download_profilepic(profile)
-    for jpgfile in glob.iglob(os.path.join(name, "*.jpg")):
-        shutil.move(jpgfile, "photos/" + name + ".jpg")
-    shutil.rmtree(name)
-    return Response(status=status.HTTP_200_OK)
 
-@api_view(['GET'])
-def getProfilePics(request):
+def getProfilePics():
     global igloader
     users = Username.objects.all()
     for user in users:
@@ -117,17 +110,39 @@ def getProfilePics(request):
             shutil.move(jpgfile, "photos/" + name + ".jpg")
         shutil.rmtree(name)
         user.photo = "photos/" + name + ".jpg"
-        # user.bio = profile.biography
+        user.bio = remove_emoji(profile.biography)
+        user.site = profile.external_url
+        if checkBio(user.site):
+            user.contains_link = True
         user.save()
-    return Response(status=status.HTTP_200_OK)
+
 
 @api_view(['GET'])
-def getBio(request):
-    global igloader
-    username = request.data.get('username')
-    profile = igloader.check_profile_id(username)
-    print(profile.biography)
-    return Response(status=status.HTTP_200_OK)
+def commentsToPlane(request):
+    comments = Comment.objects.all()
+    replies = Reply.objects.all()
+    dataset = list(comments.values_list('text', flat=True)) + list(replies.values_list('text', flat=True))
+    test_dataset = text_dataset(dataset)
+    prediction_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False)
+    planes = text_to_2d_plane(model=model, test_loader=prediction_dataloader)
+    for i in range(len(comments)):
+        comments[i].x = planes[i][0]
+        comments[i].y = planes[i][1]
+        comments[i].save()
+    for i in range(len(replies)):
+        replies[i].x = planes[i+len(comments)][0]
+        replies[i].y = planes[i+len(comments)][1]
+        replies[i].save()
+    return Response(list(comments.values('id', 'text', 'x', 'y', 'username'))+list(replies.values('id', 'text', 'x', 'y', 'username')), status=status.HTTP_200_OK)
+
+
+def remove_emoji(string):
+    return emoji.get_emoji_regexp().sub(u'', string)
+
+
+def checkBio(string):
+    return re.search(".ly|.bio", string)
+
 
 @api_view(['GET', 'POST'])
 def profile(request):
@@ -145,6 +160,7 @@ def profile(request):
             serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
 @api_view(['GET', 'POST'])
 def post(request):
     if request.method == 'GET':
@@ -161,6 +177,7 @@ def post(request):
             if serializer.is_valid():
                 serializer.save()
         return Response(status=status.HTTP_200_OK)
+
 
 @api_view(['GET', 'POST'])
 def comment(request):
@@ -188,13 +205,15 @@ def comment(request):
                 if serializer.is_valid():
                     serializer.save()
             classifiedcomments += classifyComments(ts, id)
+            getProfilePics()
         return Response(classifiedcomments, status=status.HTTP_200_OK)
 
-    @api_view(['GET'])
-    def username(request):
-        if request.method == 'GET':
-            users = Username.objects.all()
-            serializer = usernameSerializer(users, many=True)
-            return Response(serializer.data)
+
+@api_view(['GET'])
+def username(request):
+    if request.method == 'GET':
+        users = Username.objects.all()
+        serializer = usernameSerializer(users, many=True)
+        return Response(serializer.data)
 
 

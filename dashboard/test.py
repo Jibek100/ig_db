@@ -2,13 +2,15 @@ import torch
 import numpy as np
 
 from torch.utils.data import Dataset
-from .model import DistilBertForSequenceClassification
+from tqdm import tqdm
+
+from dashboard.model import DistilBertForSequenceClassification
 from transformers import DistilBertConfig, DistilBertTokenizer
+from sklearn.manifold import TSNE
 
 TOKENIZER = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
 DEVICE = torch.device("cpu")
 MAX_SEQ_LENGTH = 256
-
 
 class text_dataset(Dataset):
     def __init__(self, x, y=None, transform=None):
@@ -51,6 +53,14 @@ def preds(model, test_loader):
             predictions.append(outputs.cpu().detach().numpy().tolist())
     return predictions
 
+def text_to_2d_plane(model, test_loader):
+    embeds = []
+    for inputs in tqdm(test_loader, total=len(test_loader)):
+        inputs = inputs.to(DEVICE)
+        with torch.no_grad():
+            outputs = model.distilbert(inputs)
+            embeds.append(outputs[0][:, 0].squeeze().tolist())
+    return TSNE().fit_transform(embeds)
 
 def main():
     config = DistilBertConfig(
@@ -62,19 +72,13 @@ def main():
     model = DistilBertForSequenceClassification(config)
     model.load_state_dict(state_dict=state_dict)
     model.to(DEVICE)
-    comments = [
-        'Fuck u', 'I hate u', 'I wish u were dead!',
-        'U r a good man', 'I hope that you will die someday', 'Hate must be vanished',
-        'Fuck yeah', 'Fucking aweasome', 'The government should have done somethinng more meaningful']
-
+    comments = ['Fuck u', 'I like u', 'I hate u', 'I wish u were dead!',
+    'U r a good man', 'I hope that you will die someday', 'Hate must be vanished',
+    'Fuck yeah', 'Fucking aweasome', 'The government should have done somethinng more meaningful' ]
     test_dataset = text_dataset(comments)
-    prediction_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False)
-
-    predictions = preds(model=model, test_loader=prediction_dataloader)
-    predictions = np.array(predictions)[:,0]
-
-    for prediction in predictions:
-        print(["{0:0.2f}".format(i) for i in prediction])
+    prediction_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=2, shuffle=False)
+    planes = text_to_2d_plane(model=model, test_loader=prediction_dataloader)
+    print(planes)
 
 
 if __name__ == '__main__':
