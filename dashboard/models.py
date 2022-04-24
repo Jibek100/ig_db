@@ -22,7 +22,7 @@ class Post(models.Model):
     ts = models.DateTimeField(default=timezone.now, null=True, blank=True)
 
 class Username(models.Model):
-    id = models.CharField(primary_key=True, max_length=100, auto_created=True)
+    id = models.AutoField(primary_key=True)
     username = models.CharField(max_length=20)
     photo = models.TextField(null=True, blank=True)
     bio = models.CharField(null=True, blank=True, max_length=300)
@@ -37,7 +37,6 @@ class Comment(models.Model):
     id = models.CharField(primary_key=True, max_length=100)
     text = models.TextField()
     date_posted = models.DateTimeField(default=timezone.now)
-    username_id = models.CharField(max_length=100, null=True, blank=True)
     username = models.CharField(max_length=20)
     post_id = models.ForeignKey(Post, on_delete=models.CASCADE)
     like_count = models.IntegerField()
@@ -55,7 +54,6 @@ class Reply(models.Model):
     text = models.TextField()
     date_posted = models.DateTimeField(default=timezone.now)
     username = models.CharField(max_length=20)
-    username_id = models.CharField(max_length=100, null=True, blank=True)
     post_id = models.ForeignKey(Post, on_delete=models.CASCADE)
     like_count = models.IntegerField()
     comment_id = models.ForeignKey(Comment, related_name='replies', on_delete=models.CASCADE)
