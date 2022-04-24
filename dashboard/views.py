@@ -205,7 +205,7 @@ def comment(request):
                 if serializer.is_valid():
                     serializer.save()
             classifiedcomments += classifyComments(ts, id)
-            getProfilePics()
+            #getProfilePics()
         return Response(classifiedcomments, status=status.HTTP_200_OK)
 
 

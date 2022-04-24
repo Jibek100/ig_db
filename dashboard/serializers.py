@@ -34,9 +34,9 @@ class commentSerializer(WritableNestedModelSerializer):
     def create(self, validated_data):
         post = validated_data.get('post_id')
         ts = post.ts
-        user = Username.objects.filter(id=validated_data.get('username_id'))
+        user = Username.objects.filter(username=validated_data.get('username'))
         if not user:
-            Username.objects.create(id=validated_data.get('username_id'), username=validated_data.get('username'))
+            Username.objects.create(username=validated_data.get('username'))
         replies_data = validated_data.pop('replies')
         comment = Comment.objects.create(**validated_data)
         if validated_data.get('date_posted') <= ts:
@@ -46,9 +46,9 @@ class commentSerializer(WritableNestedModelSerializer):
             post.save()
         comment.save()
         for reply in replies_data:
-            user2 = Username.objects.filter(id=reply.get('username_id'))
+            user2 = Username.objects.filter(username=reply.get('username'))
             if not user2:
-                Username.objects.create(id=reply.get('username_id'), username=reply.get('username'))
+                Username.objects.create(username=reply.get('username'))
             Reply.objects.create(comment_id=comment, **reply)
         return comment
 
