@@ -4,6 +4,8 @@ import shutil
 import json
 import joblib
 import operator
+
+import numpy as np
 import pandas as pd
 import collections
 import instaloader
@@ -68,26 +70,30 @@ def searchComment(request):
 def classifyComments(ts, post_id):
     comments = Comment.objects.filter(date_posted__gte=ts, post_id=post_id).exclude(date_posted__exact=ts)
     replies = Reply.objects.filter(date_posted__gte=ts, post_id=post_id).exclude(date_posted__exact=ts)
-    dataset = list(comments.values_list('text', flat=True)) + list(replies.values_list('text', flat=True))
+    dataset = list(comments.values_list('text', flat=True))
     test_dataset = text_dataset(dataset)
-    prediction_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False)
+    prediction_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=10, shuffle=False)
     predictions = preds(model=model, test_loader=prediction_dataloader)
-    predictions = np.array(predictions)[:, 0]
     for i in range(len(comments)):
-        comments[i].toxic = predictions[i, 0]
-        comments[i].severe_toxic = predictions[i, 1]
-        comments[i].obscene = predictions[i, 2]
-        comments[i].threat = predictions[i, 3]
-        comments[i].insult = predictions[i, 4]
-        comments[i].identity_hate = predictions[i, 5]
+        comments[i].toxic = predictions[i][0]
+        comments[i].severe_toxic = predictions[i][1]
+        comments[i].obscene = predictions[i][2]
+        comments[i].threat = predictions[i][3]
+        comments[i].insult = predictions[i][4]
+        comments[i].identity_hate = predictions[i][5]
         comments[i].save()
+
+    dataset_replies = list(replies.values_list('text', flat=True))
+    test_dataset_replies = text_dataset(dataset_replies)
+    prediction_dataloader_replies = torch.utils.data.DataLoader(test_dataset_replies, batch_size=10, shuffle=False)
+    predictions_replies = preds(model=model, test_loader=prediction_dataloader_replies)
     for i in range(len(replies)):
-        replies[i].toxic = predictions[i+len(comments), 0]
-        replies[i].severe_toxic = predictions[i+len(comments), 1]
-        replies[i].obscene = predictions[i+len(comments), 2]
-        replies[i].threat = predictions[i+len(comments), 3]
-        replies[i].insult = predictions[i+len(comments), 4]
-        replies[i].identity_hate = predictions[i+len(comments), 5]
+        replies[i].toxic = predictions_replies[i][0]
+        replies[i].severe_toxic = predictions_replies[i][1]
+        replies[i].obscene = predictions_replies[i][2]
+        replies[i].threat = predictions_replies[i][3]
+        replies[i].insult = predictions_replies[i][4]
+        replies[i].identity_hate = predictions_replies[i][5]
         replies[i].save()
 
     return list(comments.values()) + list(replies.values())
@@ -107,33 +113,35 @@ def getProfilePics():
         profile = igloader.check_profile_id(name.lower())
         igloader.download_profilepic(profile)
         for jpgfile in glob.iglob(os.path.join(name, "*.jpg")):
-            shutil.move(jpgfile, "photos/" + name + ".jpg")
+            shutil.move(jpgfile, "folder/folder/photos/" + name + ".jpg")
         shutil.rmtree(name)
-        user.photo = "photos/" + name + ".jpg"
+        user.photo = "folder/folder/photos/" + name + ".jpg"
         user.bio = remove_emoji(profile.biography)
         user.site = profile.external_url
-        if checkBio(user.site):
-            user.contains_link = True
+        # if checkBio(user.site):
+        #     user.contains_link = True
         user.save()
 
 
-@api_view(['GET'])
-def commentsToPlane(request):
+def commentsToPlane():
     comments = Comment.objects.all()
     replies = Reply.objects.all()
-    dataset = list(comments.values_list('text', flat=True)) + list(replies.values_list('text', flat=True))
+    dataset = list(comments.values_list('text', flat=True))
     test_dataset = text_dataset(dataset)
-    prediction_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False)
+    prediction_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=10, shuffle=False)
     planes = text_to_2d_plane(model=model, test_loader=prediction_dataloader)
     for i in range(len(comments)):
         comments[i].x = planes[i][0]
         comments[i].y = planes[i][1]
         comments[i].save()
+    dataset_replies = list(replies.values_list('text', flat=True))
+    test_dataset_replies = text_dataset(dataset_replies)
+    prediction_dataloader_replies = torch.utils.data.DataLoader(test_dataset_replies, batch_size=10, shuffle=False)
+    planes_replies = text_to_2d_plane(model=model, test_loader=prediction_dataloader_replies)
     for i in range(len(replies)):
-        replies[i].x = planes[i+len(comments)][0]
-        replies[i].y = planes[i+len(comments)][1]
+        replies[i].x = planes_replies[i][0]
+        replies[i].y = planes_replies[i][1]
         replies[i].save()
-    return Response(list(comments.values('id', 'text', 'x', 'y', 'username'))+list(replies.values('id', 'text', 'x', 'y', 'username')), status=status.HTTP_200_OK)
 
 
 def remove_emoji(string):
@@ -141,7 +149,7 @@ def remove_emoji(string):
 
 
 def checkBio(string):
-    return re.search(".ly|.bio", string)
+    return re.search(".ly", string)
 
 
 @api_view(['GET', 'POST'])
@@ -205,7 +213,8 @@ def comment(request):
                 if serializer.is_valid():
                     serializer.save()
             classifiedcomments += classifyComments(ts, id)
-            #getProfilePics()
+            getProfilePics()
+            commentsToPlane()
         return Response(classifiedcomments, status=status.HTTP_200_OK)
 
 

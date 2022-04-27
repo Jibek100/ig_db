@@ -8,5 +8,4 @@ urlpatterns = [
     path('posts/', views.post, name="dashboard-posts"),
     path('comments/', views.comment, name="dashboard-comments"),
     path('searchusername/', views.searchUsername, name="user-interactions"),
-    path('plane/', views.commentsToPlane, name="plane"),
 ]

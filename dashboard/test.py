@@ -50,7 +50,11 @@ def preds(model, test_loader):
         with torch.no_grad():
             outputs = model(inputs)
             outputs = torch.sigmoid(outputs)
-            predictions.append(outputs.cpu().detach().numpy().tolist())
+            if len(outputs) > 1:
+                predictions += outputs.cpu().detach().numpy().tolist()
+            else:
+                predictions.append(outputs.cpu().detach().numpy().tolist())
+
     return predictions
 
 def text_to_2d_plane(model, test_loader):
@@ -59,7 +63,11 @@ def text_to_2d_plane(model, test_loader):
         inputs = inputs.to(DEVICE)
         with torch.no_grad():
             outputs = model.distilbert(inputs)
-            embeds.append(outputs[0][:, 0].squeeze().tolist())
+            if len(outputs) > 1:
+                embeds += outputs[0][:, 0].squeeze().tolist()
+            else:
+                embeds.append(outputs[0][:, 0].squeeze().tolist())
+            # embeds.append(outputs[0][:, 0].squeeze().tolist())
     return TSNE().fit_transform(embeds)
 
 def main():
