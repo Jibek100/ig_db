@@ -161,6 +161,51 @@ def getPhishingIndexes(request):
         user.save()
     return Response(list(Username.objects.all().values('username', 'site','nudity_indicator')), status=status.HTTP_200_OK)
 
+@api_view(['GET'])
+def getPhishingIndexesByPost(request):
+
+    set_seed(42)
+    phishingmodel = MobileNetClf()
+    device = torch.device('cpu')
+    phishingmodel.load_state_dict(torch.load('dashboard/models/best_model_resnet18.pt', map_location=device))
+
+    img_size = 320
+    pretrained_means = [0.485, 0.456, 0.406]
+    pretrained_stds = [0.229, 0.224, 0.225]
+
+    test_transforms = transforms.Compose([
+        transforms.Resize(img_size),
+        transforms.ToTensor(),
+        transforms.Normalize(
+            mean=pretrained_means,
+            std=pretrained_stds)
+    ])
+
+    test_data = ImageFolderWithPaths(
+        root='dashboard/folder',
+        transform=test_transforms)
+
+    test_iterator = data.DataLoader(
+        test_data,
+        batch_size=64)
+
+    phishingmodel.to(device)
+    phishingmodel.eval()
+    preds, paths = [], []
+    with torch.no_grad():
+        for x, y, path in tqdm(test_iterator, desc='Eval'):
+            x = x.to(device)
+            y = y.to(device)
+
+            preds += phishingmodel(x).tolist()
+            paths += path
+    for i in range(len(preds)):
+        name = getName(paths[i])
+        user = Username.objects.filter(username=name).first()
+        user.nudity_indicator = 1-preds[i]
+        user.save()
+    return Response(list(Username.objects.all().values('username', 'site','nudity_indicator')), status=status.HTTP_200_OK)
+
 def getName(string):
     return string.split("folder\\folder\\")[1].split(".jpg")[0]
 
