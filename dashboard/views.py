@@ -4,7 +4,6 @@ import shutil
 import json
 import joblib
 import operator
-
 import numpy as np
 import pandas as pd
 import collections
@@ -23,8 +22,11 @@ from rest_framework import viewsets
 from django.db.models import Count
 from sklearn.manifold import TSNE
 from .models import *
+
 from .serializers import *
 from .test import *
+from .test2 import *
+from .utils import *
 
 _MODEL_TYPE_NAMES = ['obscene', 'insult', 'toxic', 'severe_toxic', 'identity_hate', 'threat']
 engine = SearchEngine()
@@ -98,13 +100,6 @@ def classifyComments(ts, post_id):
 
     return list(comments.values()) + list(replies.values())
 
-
-@api_view(['POST'])
-def searchUsername(request):
-    comments = list(Comment.objects.filter(username=request.data['username']).values()) + list(Reply.objects.filter(username=request.data['username']).values())
-    return Response(comments, status=status.HTTP_200_OK)
-
-
 def getProfilePics():
     global igloader
     users = Username.objects.all()
@@ -113,15 +108,61 @@ def getProfilePics():
         profile = igloader.check_profile_id(name.lower())
         igloader.download_profilepic(profile)
         for jpgfile in glob.iglob(os.path.join(name, "*.jpg")):
-            shutil.move(jpgfile, "folder/folder/photos/" + name + ".jpg")
+            shutil.move(jpgfile, "dashboard/folder/folder/" + name + ".jpg")
         shutil.rmtree(name)
-        user.photo = "folder/folder/photos/" + name + ".jpg"
+        user.photo = "dashboard/folder/folder/" + name + ".jpg"
         user.bio = remove_emoji(profile.biography)
         user.site = profile.external_url
         # if checkBio(user.site):
         #     user.contains_link = True
         user.save()
 
+@api_view(['GET'])
+def getPhishingIndexes(request):
+    set_seed(42)
+    phishingmodel = MobileNetClf()
+    device = torch.device('cpu')
+    phishingmodel.load_state_dict(torch.load('dashboard/models/best_model_resnet18.pt', map_location=device))
+
+    img_size = 320
+    pretrained_means = [0.485, 0.456, 0.406]
+    pretrained_stds = [0.229, 0.224, 0.225]
+
+    test_transforms = transforms.Compose([
+        transforms.Resize(img_size),
+        transforms.ToTensor(),
+        transforms.Normalize(
+            mean=pretrained_means,
+            std=pretrained_stds)
+    ])
+
+    test_data = ImageFolderWithPaths(
+        root='dashboard/folder',
+        transform=test_transforms)
+
+    test_iterator = data.DataLoader(
+        test_data,
+        batch_size=64)
+
+    phishingmodel.to(device)
+    phishingmodel.eval()
+    preds, paths = [], []
+    with torch.no_grad():
+        for x, y, path in tqdm(test_iterator, desc='Eval'):
+            x = x.to(device)
+            y = y.to(device)
+
+            preds += phishingmodel(x).tolist()
+            paths += path
+    for i in range(len(preds)):
+        name = getName(paths[i])
+        user = Username.objects.filter(username=name).first()
+        user.nudity_indicator = 1-preds[i]
+        user.save()
+    return Response(list(Username.objects.all().values('username', 'site','nudity_indicator')), status=status.HTTP_200_OK)
+
+def getName(string):
+    return string.split("folder\\folder\\")[1].split(".jpg")[0]
 
 def commentsToPlane():
     comments = Comment.objects.all()
@@ -214,7 +255,7 @@ def comment(request):
                     serializer.save()
             classifiedcomments += classifyComments(ts, id)
             getProfilePics()
-            commentsToPlane()
+            # commentsToPlane()
         return Response(classifiedcomments, status=status.HTTP_200_OK)
 
 
