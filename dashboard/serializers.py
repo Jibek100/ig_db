@@ -1,18 +1,18 @@
 from collections import OrderedDict
 from rest_framework import serializers
 from drf_writable_nested.serializers import WritableNestedModelSerializer
-from .models import Profile, Post, Comment, Reply
+from .models import *
+from .views import *
 
 class profileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ['id', 'username', 'bio', 'type']
+        fields = '__all__'
 
 class postSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
-        fields = ['id', 'text', 'date_posted', 'profile_id', 'like_count',
-                  'comment_count', 'engament', 'impression', 'reach', 'saved', 'ts']
+        fields = '__all__'
 
     def create(self, validated_data):
         ts = validated_data.get('date_posted')
@@ -20,40 +20,51 @@ class postSerializer(serializers.ModelSerializer):
         return post
 
 class replySerializer(serializers.ModelSerializer):
+    comment_id = serializers.PrimaryKeyRelatedField(queryset=Comment.objects.all(), required=False)
     class Meta:
         model = Reply
-        fields = ['id', 'text', 'date_posted']
+        fields = '__all__'
 
 class commentSerializer(WritableNestedModelSerializer):
     replies = replySerializer(many=True)
     class Meta:
         model = Comment
-        fields = ['id', 'text', 'date_posted', 'username',
-                  'post_id', 'like_count', 'replies', 'obscene', 'insult',
-                  'toxic', 'severe_toxic', 'identity_hate', 'threat']
-
-    def update(self, instance, validated_data):
-        post = validated_data.get('post_id')
-        ts = post.ts
-        replies_data = validated_data.pop('replies')
-        for reply_data in replies_data:
-            if reply_data.get('date_posted') > ts:
-                reply = Reply.objects.create(comment=instance, **reply_data)
-        return instance
+        fields = '__all__'
 
     def create(self, validated_data):
         post = validated_data.get('post_id')
         ts = post.ts
-
+        user = Username.objects.filter(username=validated_data.get('username'))
+        if not user:
+            Username.objects.create(username=validated_data.get('username'))
         replies_data = validated_data.pop('replies')
         comment = Comment.objects.create(**validated_data)
-        for reply_data in replies_data:
-            Reply.objects.create(comment=comment, **reply_data)
         if validated_data.get('date_posted') <= ts:
             comment.delete()
         else:
             post.ts = validated_data.get('date_posted')
             post.save()
+        comment.save()
+        for reply in replies_data:
+            user2 = Username.objects.filter(username=reply.get('username'))
+            if not user2:
+                Username.objects.create(username=reply.get('username'))
+            Reply.objects.create(comment_id=comment, **reply)
         return comment
+
+    def update(self, instance, validated_data):
+        post = validated_data.get('post_id')
+        ts = post.ts
+        replies_data = validated_data.pop('replies')
+        for reply in replies_data:
+            reply_id = reply.get('id', None)
+            if not reply_id:
+                reply = Reply.objects.create(comment_id=instance, **reply)
+        return instance
+
+class usernameSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Username
+        fields = '__all__'
 
 

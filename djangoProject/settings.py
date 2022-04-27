@@ -31,10 +31,14 @@ SECRET_KEY = 'django-insecure-e8&h8^$3&c@x&q#7ghr2(j%(fx^!xyp&&0!sm+yx+p7r8r1uqc
 DEBUG = True
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 ALLOWED_HOSTS = ['jibek100.pythonanywhere.com', '*']
 =======
 ALLOWED_HOSTS = ['jibek100.pythonanywhere.com', '127.0.0.1', '*']
 >>>>>>> d5e5c169a32ff31792fe11ad5e2dd4f58424b12b
+=======
+ALLOWED_HOSTS = ['127.0.0.1', '*']
+>>>>>>> 07ff25896ede078f447ce0a872640d79479357f6
 
 # Application definition
 
@@ -94,6 +98,13 @@ DATABASES = {
         'PASSWORD': 'password_ig',
         'HOST': 'Jibek100.mysql.pythonanywhere-services.com'
     }
+    # 'default': {
+    #     'ENGINE': 'django.db.backends.mysql',
+    #     'NAME': 'ig_management_db',
+    #     'USER': 'root',
+    #     'PASSWORD': 'Chaikovski11',
+    #     'HOST': '127.0.0.1'
+    # }
 }
 
 
@@ -135,7 +146,9 @@ USE_TZ = True
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATIC_URL = '/static/'
-
+STATICFILES_DIRS = (
+    os.path.join(BASE_DIR, 'static'),
+)
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 

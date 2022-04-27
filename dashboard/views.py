@@ -1,25 +1,51 @@
+import os
+import glob
+import shutil
 import json
 import joblib
 import operator
+
+import numpy as np
 import pandas as pd
 import collections
+import instaloader
+import itertools
+import emoji
+import re
 from django.core.files.storage import FileSystemStorage
 from django.http import HttpResponse
 from rest_framework import status
 from .engine import SearchEngine
+from .model import DistilBertForSequenceClassification
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import viewsets
-from .models import Profile, Post, Comment, Reply
-from .serializers import profileSerializer, postSerializer, commentSerializer, replySerializer
+from django.db.models import Count
+from sklearn.manifold import TSNE
+from .models import *
+from .serializers import *
+from .test import *
+
 _MODEL_TYPE_NAMES = ['obscene', 'insult', 'toxic', 'severe_toxic', 'identity_hate', 'threat']
 engine = SearchEngine()
+igloader = instaloader.Instaloader()
+config = DistilBertConfig(
+    vocab_size=32000, hidden_dim=768,
+    dropout=0.1, num_labels=6,
+    n_layers=12, n_heads=12,
+    intermediate_size=3072)
+state_dict = torch.load('dashboard/models/distilbert_model_weights.pth', map_location=DEVICE)
+model = DistilBertForSequenceClassification(config)
+model.load_state_dict(state_dict=state_dict)
+model.to(DEVICE)
+
 
 def home(request):
     html = "<html><body>This is the site's homepage. </body></html>"
     return HttpResponse(html)
 
-def getCommentsDf(fields = ['id', 'text', 'username', 'like_count', 'post_id']):
+
+def getCommentsDf(fields=['id', 'text', 'username', 'like_count', 'post_id']):
     comments = Comment.objects.all()
     serializer = commentSerializer(comments, many=True)
     df = pd.DataFrame(serializer.data, index=None)
@@ -30,6 +56,7 @@ def getCommentsDf(fields = ['id', 'text', 'username', 'like_count', 'post_id']):
     #     print(dataInstance)
     return df
 
+
 @api_view(['POST'])
 def searchComment(request):
     global engine
@@ -39,25 +66,91 @@ def searchComment(request):
     engine.buildIndex()
     return Response(engine.searchQuery(text, to_display=request.data['fields']))
 
-def classifyCommentsBy(ts, post_id):
+
+def classifyComments(ts, post_id):
     comments = Comment.objects.filter(date_posted__gte=ts, post_id=post_id).exclude(date_posted__exact=ts)
-    list = []
-    for comment in comments:
-        commentText = comment.text
-        models = {modelName:joblib.load('dashboard/models/' + modelName + '.pkl') for modelName in _MODEL_TYPE_NAMES}
-        vectorizer = joblib.load('dashboard/models/' + 'vectorizer' + '.pkl')
-        output = {modelName:models[modelName].predict_proba(vectorizer.transform([commentText])) for modelName in models}
-        for value in output.values():
-            list.append(value[0][1])
-        comment.obscene = list[0]
-        comment.insult = list[1]
-        comment.toxic = list[2]
-        comment.severe_toxic = list[3]
-        comment.identity_hate = list[4]
-        comment.threat = list[5]
-        comment.save()
-        list.clear()
-    return comments
+    replies = Reply.objects.filter(date_posted__gte=ts, post_id=post_id).exclude(date_posted__exact=ts)
+    dataset = list(comments.values_list('text', flat=True))
+    test_dataset = text_dataset(dataset)
+    prediction_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=10, shuffle=False)
+    predictions = preds(model=model, test_loader=prediction_dataloader)
+    for i in range(len(comments)):
+        comments[i].toxic = predictions[i][0]
+        comments[i].severe_toxic = predictions[i][1]
+        comments[i].obscene = predictions[i][2]
+        comments[i].threat = predictions[i][3]
+        comments[i].insult = predictions[i][4]
+        comments[i].identity_hate = predictions[i][5]
+        comments[i].save()
+
+    dataset_replies = list(replies.values_list('text', flat=True))
+    test_dataset_replies = text_dataset(dataset_replies)
+    prediction_dataloader_replies = torch.utils.data.DataLoader(test_dataset_replies, batch_size=10, shuffle=False)
+    predictions_replies = preds(model=model, test_loader=prediction_dataloader_replies)
+    for i in range(len(replies)):
+        replies[i].toxic = predictions_replies[i][0]
+        replies[i].severe_toxic = predictions_replies[i][1]
+        replies[i].obscene = predictions_replies[i][2]
+        replies[i].threat = predictions_replies[i][3]
+        replies[i].insult = predictions_replies[i][4]
+        replies[i].identity_hate = predictions_replies[i][5]
+        replies[i].save()
+
+    return list(comments.values()) + list(replies.values())
+
+
+@api_view(['POST'])
+def searchUsername(request):
+    comments = list(Comment.objects.filter(username=request.data['username']).values()) + list(Reply.objects.filter(username=request.data['username']).values())
+    return Response(comments, status=status.HTTP_200_OK)
+
+
+def getProfilePics():
+    global igloader
+    users = Username.objects.all()
+    for user in users:
+        name = user.username
+        profile = igloader.check_profile_id(name.lower())
+        igloader.download_profilepic(profile)
+        for jpgfile in glob.iglob(os.path.join(name, "*.jpg")):
+            shutil.move(jpgfile, "folder/folder/photos/" + name + ".jpg")
+        shutil.rmtree(name)
+        user.photo = "folder/folder/photos/" + name + ".jpg"
+        user.bio = remove_emoji(profile.biography)
+        user.site = profile.external_url
+        # if checkBio(user.site):
+        #     user.contains_link = True
+        user.save()
+
+
+def commentsToPlane():
+    comments = Comment.objects.all()
+    replies = Reply.objects.all()
+    dataset = list(comments.values_list('text', flat=True))
+    test_dataset = text_dataset(dataset)
+    prediction_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=10, shuffle=False)
+    planes = text_to_2d_plane(model=model, test_loader=prediction_dataloader)
+    for i in range(len(comments)):
+        comments[i].x = planes[i][0]
+        comments[i].y = planes[i][1]
+        comments[i].save()
+    dataset_replies = list(replies.values_list('text', flat=True))
+    test_dataset_replies = text_dataset(dataset_replies)
+    prediction_dataloader_replies = torch.utils.data.DataLoader(test_dataset_replies, batch_size=10, shuffle=False)
+    planes_replies = text_to_2d_plane(model=model, test_loader=prediction_dataloader_replies)
+    for i in range(len(replies)):
+        replies[i].x = planes_replies[i][0]
+        replies[i].y = planes_replies[i][1]
+        replies[i].save()
+
+
+def remove_emoji(string):
+    return emoji.get_emoji_regexp().sub(u'', string)
+
+
+def checkBio(string):
+    return re.search(".ly", string)
+
 
 @api_view(['GET', 'POST'])
 def profile(request):
@@ -74,6 +167,7 @@ def profile(request):
         if serializer.is_valid():
             serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 @api_view(['GET', 'POST'])
 def post(request):
@@ -92,6 +186,7 @@ def post(request):
                 serializer.save()
         return Response(status=status.HTTP_200_OK)
 
+
 @api_view(['GET', 'POST'])
 def comment(request):
     if request.method == 'GET':
@@ -100,23 +195,34 @@ def comment(request):
         return Response(serializer.data)
 
     elif request.method == 'POST':
-        classifiedComments = []
-        comments = collections.defaultdict(list)
+        classifiedcomments = []
+        allcomments = collections.defaultdict(list)
         for item in request.data:
-            comments[item['post_id']].append(item)
-        commentsSplitted = list(comments.values())
-        for listOfComments in commentsSplitted:
-            listOfComments.sort(key=operator.itemgetter('date_posted'))
-            id = listOfComments[0].get('post_id')
+            allcomments[item['post_id']].append(item)
+        sortedcomments = list(allcomments.values())
+        for comments in sortedcomments:
+            comments.sort(key=operator.itemgetter('date_posted'))
+            id = comments[0].get('post_id')
             post = Post.objects.filter(id=id).first()
-            timestamp = post.ts
-            for item in listOfComments:
-                if Comment.objects.filter(id=item.get('id')).exists():
-                    serializer = commentSerializer(Comment.objects.get(id=item.get('id')), data=item, partial=True)
+            ts = post.ts
+            for comment in comments:
+                if Comment.objects.filter(id=comment.get('id')).exists():
+                    serializer = commentSerializer(Comment.objects.get(id=comment.get('id')), data=comment, partial=True)
                 else:
-                    serializer = commentSerializer(data=item)
+                    serializer = commentSerializer(data=comment)
                 if serializer.is_valid():
                     serializer.save()
-            classifiedComments += classifyCommentsBy(timestamp, id).values()
-        return Response(classifiedComments, status=status.HTTP_200_OK)
+            classifiedcomments += classifyComments(ts, id)
+            getProfilePics()
+            commentsToPlane()
+        return Response(classifiedcomments, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+def username(request):
+    if request.method == 'GET':
+        users = Username.objects.all()
+        serializer = usernameSerializer(users, many=True)
+        return Response(serializer.data)
+
 
