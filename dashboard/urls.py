@@ -7,5 +7,5 @@ urlpatterns = [
     path('profiles/', views.profile, name="dashboard-profiles"),
     path('posts/', views.post, name="dashboard-posts"),
     path('comments/', views.comment, name="dashboard-comments"),
-    path('searchusername/', views.searchUsername, name="user-interactions"),
+    path('getphishers/', views.getPhishingIndexes, name="phishers"),
 ]
